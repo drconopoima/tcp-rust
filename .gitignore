@@ -1,1 +1,4 @@
 /target
+
+# Remove cargo configuration
+.cargo/**/*
