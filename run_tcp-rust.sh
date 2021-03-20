@@ -31,15 +31,23 @@ if [[ ! -f "${lockfile}" ]]; then
     (echo $$ >"${lockfile}") && echo "Adquired lock ${lockfile}"
     set -x
     cargo build --release
+    { set +x; } 2>/dev/null
     sudo -p "Please enter your password: " whoami 1>/dev/null && {
+        set -x
         sudo setcap cap_net_admin=eip "$CARGO_TARGET_DIR/release/${binary}"
+        { set +x; } 2>/dev/null
     }
     command=("$CARGO_TARGET_DIR/release/${binary}")
+    set -x
     ${command[0]} &
-    readonly PROCESS_PID="$!"
+    PROCESS_PID="$!"
+    { set +x; } 2>/dev/null
+    readonly PROCESS_PID
     sudo -p "Please enter your password: " whoami 1>/dev/null && {
+        set -x
         sudo ip addr add "${IP_RANGE_TUNTAP}" dev "${TUNTAP_DEVICE_NAME}"
         sudo ip link set up dev "${TUNTAP_DEVICE_NAME}"
+        { set +x; } 2>/dev/null
     }
     function handler_stop() {
         set +eEuo pipefail
