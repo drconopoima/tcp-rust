@@ -11,4 +11,5 @@ name = "tcp-rust"
 path = "src/main.rs"
 
 [dependencies]
+etherparse = "~0.9.0"
 tun-tap = "~0.1.2"
