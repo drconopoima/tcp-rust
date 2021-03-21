@@ -1,6 +1,9 @@
 use etherparse::{Ipv4HeaderSlice, TcpHeaderSlice};
+use std::collections::HashMap;
 use std::io;
 use tun_tap;
+
+mod tcp;
 
 macro_rules! skip_unparsable {
     ($res:expr) => {
@@ -15,6 +18,7 @@ macro_rules! skip_unparsable {
 }
 
 fn main() -> io::Result<()> {
+    let mut connections: HashMap<tcp::SrcDstQuad, tcp::State> = Default::default();
     let nic = tun_tap::Iface::new("tun%d", tun_tap::Mode::Tun)?;
     let mut buf = [0u8; 1504];
     loop {
@@ -34,17 +38,30 @@ fn main() -> io::Result<()> {
         let tcp_packet_header = skip_unparsable!(TcpHeaderSlice::from_slice(
             &buf[4 + ipv4_header_length..nbytes]
         ));
+        let tcp_header_length = tcp_packet_header.slice().len();
+        let data_start_byte = 4 + ipv4_header_length + tcp_header_length;
         let source_address = ipv4_packet_header.source_addr();
         let source_port = tcp_packet_header.source_port();
         let destination_address = ipv4_packet_header.destination_addr();
         let destination_port = tcp_packet_header.destination_port();
+        connections
+            .entry(tcp::SrcDstQuad {
+                src: (source_address, source_port),
+                dst: (destination_address, destination_port),
+            })
+            .or_default()
+            .on_packet(
+                ipv4_packet_header,
+                tcp_packet_header,
+                &buf[data_start_byte..nbytes],
+            );
         println!(
             "{}:{} -> {}:{} | {} bytes of protocol {:x?}",
             source_address,
             source_port,
             destination_address,
             destination_port,
-            tcp_packet_header.slice().len(),
+            tcp_header_length,
             ipv4_proto
         );
     }
